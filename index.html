@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Простой майнинг симулятор</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/fuckadblock/3.2.1/fuckadblock.min.js"></script>
+
     <style>
         :root {
             --primary: #6a11cb;
@@ -186,6 +188,57 @@
 
         .notification.error {
             background: var(--error);
+        }
+        /* Стили для блокировки */
+        #adblock-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #1a1a2e;
+            z-index: 99999;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            color: white;
+            text-align: center;
+            padding: 20px;
+        }
+        
+        #adblock-overlay h2 {
+            color: #ff4444;
+            font-size: 2rem;
+            margin-bottom: 20px;
+        }
+        
+        #adblock-overlay .icon {
+            font-size: 4rem;
+            color: #ff4444;
+            margin-bottom: 20px;
+        }
+        
+        #content {
+            display: none;
+            opacity: 0;
+            pointer-events: none;
+        }
+        
+        body.adblock-disabled #content {
+            display: block;
+            opacity: 1;
+            pointer-events: auto;
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        
+        body.adblock-disabled #adblock-overlay {
+            display: none;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
         }
     </style>
     <!-- Yandex.RTB -->
@@ -448,5 +501,116 @@ window.yaContextCb.push(() => {
     })
 })
 </script>
+<!-- Оверлей блокировки -->
+    <div id="adblock-overlay">
+        <div class="icon">
+            <i class="fas fa-ban"></i>
+        </div>
+        <h2>Обнаружен AdBlock</h2>
+        <p>Для работы сайта необходимо отключить блокировщик рекламы</p>
+        <p>После отключения обновите страницу</p>
+        <button id="recheck-btn" style="margin-top: 20px; padding: 10px 20px; background: #ff4444; color: white; border: none; border-radius: 5px; cursor: pointer;">
+            Проверить снова
+        </button>
+    </div>
+
+    <!-- Основной контент -->
+    <div id="content">
+        <!-- Весь ваш контент здесь -->
+        <h1>Добро пожаловать в майнинг симулятор!</h1>
+        <p>Сайт работает корректно, так как AdBlock отключен</p>
+    </div>
+
+    <script>
+        // Усовершенствованное обнаружение AdBlock
+        function detectAdBlock() {
+            return new Promise((resolve) => {
+                // Метод 1: Попытка загрузить рекламный скрипт
+                const adScript = document.createElement('script');
+                adScript.src = 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js';
+                adScript.onerror = () => resolve(true);
+                adScript.onload = () => {
+                    document.head.removeChild(adScript);
+                    resolve(false);
+                };
+                document.head.appendChild(adScript);
+                
+                // Метод 2: Проверка элементов рекламы
+                setTimeout(() => {
+                    const testAd = document.createElement('div');
+                    testAd.innerHTML = '&nbsp;';
+                    testAd.className = 'adsbox';
+                    testAd.style.position = 'absolute';
+                    testAd.style.left = '-9999px';
+                    testAd.style.height = '1px';
+                    document.body.appendChild(testAd);
+                    
+                    setTimeout(() => {
+                        if (testAd.offsetHeight === 0) {
+                            document.body.removeChild(testAd);
+                            resolve(true);
+                        } else {
+                            document.body.removeChild(testAd);
+                        }
+                    }, 100);
+                }, 100);
+                
+                // Таймаут для проверки
+                setTimeout(() => resolve(false), 1000);
+            });
+        }
+
+        // Блокировка сайта
+        async function blockSiteIfAdBlock() {
+            const isAdBlock = await detectAdBlock();
+            
+            if (isAdBlock) {
+                document.body.classList.add('adblock-active');
+                document.body.classList.remove('adblock-disabled');
+                
+                // Агрессивная проверка каждые 3 секунды
+                const checkInterval = setInterval(async () => {
+                    if (!(await detectAdBlock())) {
+                        clearInterval(checkInterval);
+                        document.body.classList.remove('adblock-active');
+                        document.body.classList.add('adblock-disabled');
+                        location.reload();
+                    }
+                }, 3000);
+                
+                // Кнопка ручной проверки
+                document.getElementById('recheck-btn').onclick = async () => {
+                    if (!(await detectAdBlock())) {
+                        location.reload();
+                    } else {
+                        alert('AdBlock все еще включен! Пожалуйста, отключите его полностью.');
+                    }
+                };
+            } else {
+                document.body.classList.add('adblock-disabled');
+                document.body.classList.remove('adblock-active');
+                initGame();
+            }
+        }
+
+        // Инициализация игры
+        function initGame() {
+            console.log("Игра инициализирована");
+            // Ваш основной код здесь
+        }
+
+        // Запускаем проверку при загрузке
+        window.addEventListener('DOMContentLoaded', blockSiteIfAdBlock);
+        
+        // Дополнительная защита от быстрого скрытия
+        document.addEventListener('DOMContentLoaded', () => {
+            setTimeout(() => {
+                if (!document.body.classList.contains('adblock-disabled')) {
+                    document.getElementById('adblock-overlay').style.display = 'flex';
+                    document.getElementById('content').style.display = 'none';
+                }
+            }, 500);
+        });
+    </script>
 </body>
 </html>
